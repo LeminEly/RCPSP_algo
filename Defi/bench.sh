@@ -17,6 +17,11 @@ then
     exit 1
 fi
 
+if [[ "$DATASET_NAME" == "j60" ]]; then
+    echo "💡 Tip: For the RCPSP Challenge (filtered J60), you can also use: ./bench_j60.py"
+    echo ""
+fi
+
 echo "📦 Building project in release mode..."
 cargo build --release
 

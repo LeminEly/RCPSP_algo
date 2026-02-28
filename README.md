@@ -71,6 +71,21 @@ chmod +x bench.sh
 ./bench.sh data/my_dataset data/my_solutions.sm
 ```
 
+### 🎯 Challenge Mode (J60 Only)
+
+For the **RCPSP Challenge**, we provide a specialized script that filters J60 instances to execute **ONLY** those where the optimal solution is not yet proven (LB < UB).
+
+```bash
+# Run the filtered challenge benchmark
+python3 bench_j60.py
+```
+
+This script will:
+1. Parse the `j60hrs.sm` solution file.
+2. Identify and count all "open" instances.
+3. Execute the solver sequentially on only those instances.
+4. Report the total number of open instances found.
+
 > [!NOTE]
 > The script automatically detects the dataset name and attempts to find the corresponding solutions file in the `data/` directory. Detailed logs are generated in `results/resultats_finaux.txt`.
 
@@ -96,7 +111,8 @@ Our solver consistently achieves near-optimal results with extreme efficiency.
 ├── data/               # 📂 Datasets (j30, j60.sm, etc.)
 ├── results/            # 📝 Benchmark output directory
 ├── Cargo.toml          # 📦 Dependencies (Rayon, Clap, Rand)
-└── bench.sh            # 🏃 Dynamic benchmarking script
+├── bench.sh            # 🏃 Dynamic benchmarking script
+└── bench_j60.py        # 🏆 Challenge-compliant J60 filtering script
 ```
 
 ---
