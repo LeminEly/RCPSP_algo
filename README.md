@@ -64,12 +64,15 @@ chmod +x bench.sh
 # Run on the j60 dataset (Default)
 ./bench.sh
 
-# Run on a specific dataset (e.g., j30)
+# Run on the j30 dataset
 ./bench.sh data/j30
+
+# Advanced: Specify a custom dataset path and solutions file
+./bench.sh data/my_dataset data/my_solutions.sm
 ```
 
 > [!NOTE]
-> Detailed results will be generated in `results/resultats_finaux.txt`.
+> The script automatically detects the dataset name and attempts to find the corresponding solutions file in the `data/` directory. Detailed logs are generated in `results/resultats_finaux.txt`.
 
 ---
 
@@ -89,11 +92,11 @@ Our solver consistently achieves near-optimal results with extreme efficiency.
 
 ```text
 .
-├── src/                # 🦀 Rust Source code (Genetic Algorithm, Scheduling)
-├── data/               # 📂 PSPLIB Instances (j30, j60)
+├── src/                # 🦀 Rust Source code (Islands Model GA, scheduling)
+├── data/               # 📂 Datasets (j30, j60.sm, etc.)
 ├── results/            # 📝 Benchmark output directory
-├── Cargo.toml          # 📦 Project dependencies and meta
-└── bench.sh            # 🏃 Automation script
+├── Cargo.toml          # 📦 Dependencies (Rayon, Clap, Rand)
+└── bench.sh            # 🏃 Dynamic benchmarking script
 ```
 
 ---

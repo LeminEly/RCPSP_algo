@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # Configuration
-DATASET=${1:-"data/j60.sm"}
-SOLUTIONS="data/j60hrs.sm"
+DATASET_PATH=${1:-"data/j60.sm"}
+# Extract basename (e.g., j60.sm or j30)
+DATASET_NAME=$(basename "$DATASET_PATH" .sm)
+# Default solutions file (e.g., data/j60hrs.sm)
+SOLUTIONS=${2:-"data/${DATASET_NAME}hrs.sm"}
 
 echo "=================================================="
 echo "🚀 RCPSP High-Performance Solver Benchmark"
@@ -17,8 +20,8 @@ fi
 echo "📦 Building project in release mode..."
 cargo build --release
 
-echo "🏃 Running solver on j60 instances..."
-./target/release/super_solver --dataset "$DATASET" --solutions "$SOLUTIONS"
+echo "🏃 Running solver on $DATASET_NAME instances..."
+./target/release/super_solver --dataset "$DATASET_PATH" --solutions "$SOLUTIONS"
 
 echo ""
 echo "✅ Benchmarking complete. Results saved in 'results/resultats_finaux.txt'."
