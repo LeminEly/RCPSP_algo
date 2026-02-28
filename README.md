@@ -45,7 +45,7 @@ The easiest way to install Rust is via `rustup`. Open your terminal and run:
 ```bash
 # Clone the repository
 git clone https://github.com/LeminEly/RCPSP_algo.git
-cd Defi
+cd RCPSP_algo/Defi
 
 # Compile in release mode (Crucial for performance!)
 cargo build --release
