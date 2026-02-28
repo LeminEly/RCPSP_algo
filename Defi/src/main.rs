@@ -73,15 +73,15 @@ fn parse_psplib(path: &str) -> Problem {
     Problem { n: durations.len(), durations, capacities, precedences, resources }
 }
 
-fn parse_solutions(path: &str, prefix: &str) -> HashMap<String, usize> {
+fn parse_solutions(path: &str) -> HashMap<String, usize> {
     let mut records = HashMap::new();
     if let Ok(text) = fs::read_to_string(path) {
         for line in text.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
-                // Format: "1 1 77" (groupe 1, instance 1, makespan 77)
+                // Format classique j60hrs.sm: "1 1 77" (groupe 1, instance 1, makespan 77)
                 if let (Ok(g), Ok(i), Ok(makespan)) = (parts[0].parse::<usize>(), parts[1].parse::<usize>(), parts[2].parse::<usize>()) {
-                    records.insert(format!("{}{}_{}", prefix, g, i), makespan);
+                    records.insert(format!("j60{}_{}", g, i), makespan);
                 } else if let Ok(makespan) = parts.last().unwrap().parse::<usize>() {
                     // Fallback
                     records.insert(parts[0].replace(".sm", ""), makespan);
@@ -95,14 +95,7 @@ fn parse_solutions(path: &str, prefix: &str) -> HashMap<String, usize> {
 fn main() {
     let args = Args::parse();
     
-    // Détection du préfixe à partir du dossier dataset (ex: "data/j60.sm" -> "j60")
-    let dataset_name = std::path::Path::new(&args.dataset)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("j60")
-        .replace(".sm", "");
-    
-    let old_records = parse_solutions(&args.solutions, &dataset_name);
+    let old_records = parse_solutions(&args.solutions);
 
     let mut files = Vec::new();
     if let Ok(entries) = fs::read_dir(&args.dataset) {
@@ -132,7 +125,7 @@ fn main() {
     }).collect();
 
     // Sauvegarde dans un fichier pour ne rien perdre !
-    let mut file_out = File::create("results/resultats_finaux.txt").expect("Impossible de créer le fichier");
+    let mut file_out = File::create("resultats_finaux.txt").expect("Impossible de créer le fichier");
     writeln!(file_out, "Instance | Type Solution | Valeur | Technique de résolution | Temps d'exécution | Caracteristique machine | Ancienne Valeur").unwrap();
 
     let mut records_battus = 0;
