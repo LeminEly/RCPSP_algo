@@ -12,6 +12,8 @@ pub struct Problem {
     pub resources: Vec<Vec<usize>>,
 }
 
+// --- FONCTIONS DE BASE ---
+
 pub fn serial_schedule(problem: &Problem, order: &[usize]) -> (Vec<usize>, usize) {
     custom_ssgs(problem, order, &problem.precedences)
 }
@@ -70,20 +72,9 @@ pub fn crossover(problem: &Problem, p1: &[usize], p2: &[usize]) -> Vec<usize> {
 }
 
 pub fn smart_mutation(problem: &Problem, chrom: &mut [usize]) {
-    let (start, _) = serial_schedule(problem, chrom);
-    let mut worst = 0;
-    let mut max_finish = 0;
-    for j in 0..problem.n {
-        let finish = start[j] + problem.durations[j];
-        if finish > max_finish {
-            max_finish = finish;
-            worst = j;
-        }
-    }
-    let pos = chrom.iter().position(|&x| x == worst).unwrap();
     let mut rng = rand::thread_rng();
-    let newpos = rng.gen_range(0..chrom.len());
-    chrom.swap(pos, newpos);
+    let idx = rng.gen_range(0..chrom.len() - 1);
+    chrom.swap(idx, idx + 1);
 }
 
 pub fn lns(chrom: &[usize], rate: f64) -> Vec<usize> {
@@ -105,7 +96,7 @@ pub fn lns(chrom: &[usize], rate: f64) -> Vec<usize> {
 
 fn repair_topological_sort(problem: &Problem, chrom: &mut [usize]) {
     let mut in_degree = vec![0; problem.n];
-    let mut adj: Vec<Vec<usize>> = vec![vec![]; problem.n];
+    let mut adj = vec![vec![]; problem.n];
     for j in 0..problem.n {
         for &p in &problem.precedences[j] {
             adj[p].push(j);
@@ -139,18 +130,22 @@ fn random_topological_sort(problem: &Problem) -> Vec<usize> {
     chrom
 }
 
+// --- LE SOLVER PRINCIPAL ---
+
 pub fn solve_monstre(
     problem: &Problem,
-    pop_per_island: usize,
+    _pop_size: usize,
     epochs: usize,
     generations_per_epoch: usize
 ) -> (Vec<usize>, usize) {
     let num_islands = rayon::current_num_threads();
+    let real_pop_size = 50; // Optimisé pour J120
+
     let mut islands: Vec<Vec<Vec<usize>>> = (0..num_islands)
-        .map(|_| (0..pop_per_island).map(|_| random_topological_sort(problem)).collect())
+        .map(|_| (0..real_pop_size).map(|_| random_topological_sort(problem)).collect())
         .collect();
 
-    let mut global_best = Vec::new();
+    let mut global_best_chrom = Vec::new();
     let mut global_best_fit = usize::MAX;
 
     for _epoch in 0..epochs {
@@ -158,36 +153,41 @@ pub fn solve_monstre(
             let mut rng = rand::thread_rng();
             let mut island_best_fit = usize::MAX;
             let mut island_best = Vec::new();
-            let mutation_rate = 0.3;
 
-            for _ in 0..generations_per_epoch {
+            for g in 0..generations_per_epoch {
                 let fits: Vec<usize> = pop.iter().map(|c| fitness(problem, c)).collect();
+                
                 for (i, &f) in fits.iter().enumerate() {
                     if f < island_best_fit {
                         island_best_fit = f;
                         island_best = pop[i].clone();
+                        // On n'optimise le champion que s'il est vraiment bon
+                        if g % 10 == 0 {
+                            island_best = double_justification(problem, &island_best);
+                            island_best_fit = fitness(problem, &island_best);
+                        }
                     }
                 }
 
-                let mut newpop = Vec::with_capacity(pop_per_island);
+                let mut newpop = Vec::with_capacity(real_pop_size);
                 newpop.push(island_best.clone());
 
-                while newpop.len() < pop_per_island {
-                    let p1 = select(&pop, &fits, 5);
-                    let p2 = select(&pop, &fits, 5);
+                while newpop.len() < real_pop_size {
+                    let p1 = select(&pop, &fits, 3);
+                    let p2 = select(&pop, &fits, 3);
                     let mut child = crossover(problem, &p1, &p2);
 
-                    if rng.gen_range(0.0..1.0) < mutation_rate {
-                        smart_mutation(problem, &mut child);
-                    }
                     if rng.gen_range(0.0..1.0) < 0.2 {
-                        child = lns(&child, 0.25);
+                        smart_mutation(problem, &mut child);
+                        repair_topological_sort(problem, &mut child);
                     }
-                    repair_topological_sort(problem, &mut child);
+
+                    // LNS très rare pour débloquer
+                    if g % 50 == 0 && rng.gen_range(0.0..1.0) < 0.05 {
+                        child = lns(&child, 0.15);
+                        repair_topological_sort(problem, &mut child);
+                    }
                     
-                    if rng.gen_range(0.0..1.0) < 0.10 {
-                        child = double_justification(problem, &child); 
-                    }
                     newpop.push(child);
                 }
                 pop = newpop;
@@ -196,28 +196,23 @@ pub fn solve_monstre(
         }).collect();
 
         islands = Vec::new();
-        let mut best_of_epoch_fit = usize::MAX;
-        let mut best_of_epoch_chrom = Vec::new();
-
-        for (pop, best_chrom, best_fit) in results.into_iter() {
+        for (pop, b_chrom, b_fit) in results {
             islands.push(pop);
-            if best_fit < best_of_epoch_fit {
-                best_of_epoch_fit = best_fit;
-                best_of_epoch_chrom = best_chrom;
+            if b_fit < global_best_fit {
+                global_best_fit = b_fit;
+                global_best_chrom = b_chrom;
+           
             }
         }
 
-        if best_of_epoch_fit < global_best_fit {
-            global_best_fit = best_of_epoch_fit;
-            global_best = best_of_epoch_chrom.clone();
-        }
-
         for island in islands.iter_mut() {
-            island[0] = global_best.clone();
+            island[0] = global_best_chrom.clone();
         }
     }
-    (global_best, global_best_fit)
+    (global_best_chrom, global_best_fit)
 }
+
+// --- SCHEDULER ET JUSTIFICATION ---
 
 fn custom_ssgs(problem: &Problem, order: &[usize], precedences: &[Vec<usize>]) -> (Vec<usize>, usize) {
     let n = problem.n;
@@ -229,66 +224,48 @@ fn custom_ssgs(problem: &Problem, order: &[usize], precedences: &[Vec<usize>]) -
 
     for &j in order {
         let dur = problem.durations[j];
-        let mut min_start_time = 0;
+        let mut t = 0;
         for &p in &precedences[j] {
-            if finish[p] > min_start_time {
-                min_start_time = finish[p];
-            }
+            if finish[p] > t { t = finish[p]; }
         }
 
-        if dur == 0 {
-            start[j] = min_start_time;
-            finish[j] = min_start_time;
-            continue;
-        }
-
-        let mut t = min_start_time;
         loop {
-            let mut resource_ok = true;
+            let mut ok = true;
             for tau in t..(t + dur) {
                 if tau >= max_horizon { break; }
                 for k in 0..num_res {
                     if usage[tau * num_res + k] + problem.resources[j][k] > problem.capacities[k] {
-                        resource_ok = false;
-                        break;
+                        ok = false; break;
                     }
                 }
-                if !resource_ok { break; }
+                if !ok { break; }
             }
-
-            if resource_ok {
+            if ok {
                 start[j] = t;
                 finish[j] = t + dur;
                 for tau in t..(t + dur) {
-                    for k in 0..num_res {
-                        usage[tau * num_res + k] += problem.resources[j][k];
-                    }
+                    for k in 0..num_res { usage[tau * num_res + k] += problem.resources[j][k]; }
                 }
                 break;
-            } else {
-                t += 1;
             }
+            t += 1;
         }
     }
-    let makespan = *finish.iter().max().unwrap_or(&0);
-    (start, makespan)
+    (start, *finish.iter().max().unwrap_or(&0))
 }
 
 pub fn double_justification(problem: &Problem, chrom: &[usize]) -> Vec<usize> {
-    let (start_fwd, _) = custom_ssgs(problem, chrom, &problem.precedences);
+    let (s_fwd, _) = custom_ssgs(problem, chrom, &problem.precedences);
     let mut rj_order = chrom.to_vec();
-    rj_order.sort_by_key(|&j| std::cmp::Reverse(start_fwd[j] + problem.durations[j]));
+    rj_order.sort_by_key(|&j| std::cmp::Reverse(s_fwd[j] + problem.durations[j]));
 
-    let mut rev_prec: Vec<Vec<usize>> = vec![vec![]; problem.n];
+    let mut rev_prec = vec![vec![]; problem.n];
     for i in 0..problem.n {
-        for &j in &problem.precedences[i] {
-            rev_prec[j].push(i);
-        }
+        for &j in &problem.precedences[i] { rev_prec[j].push(i); }
     }
 
-    let (start_bwd, _) = custom_ssgs(problem, &rj_order, &rev_prec);
+    let (s_bwd, _) = custom_ssgs(problem, &rj_order, &rev_prec);
     let mut lj_order = rj_order.clone();
-    lj_order.sort_by_key(|&j| std::cmp::Reverse(start_bwd[j] + problem.durations[j]));
-
+    lj_order.sort_by_key(|&j| std::cmp::Reverse(s_bwd[j] + problem.durations[j]));
     lj_order
 }
