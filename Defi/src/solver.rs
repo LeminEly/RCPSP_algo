@@ -12,8 +12,6 @@ pub struct Problem {
     pub resources: Vec<Vec<usize>>,
 }
 
-// --- FONCTIONS DE BASE ---
-
 pub fn serial_schedule(problem: &Problem, order: &[usize]) -> (Vec<usize>, usize) {
     custom_ssgs(problem, order, &problem.precedences)
 }
@@ -71,7 +69,7 @@ pub fn crossover(problem: &Problem, p1: &[usize], p2: &[usize]) -> Vec<usize> {
     child
 }
 
-pub fn smart_mutation(problem: &Problem, chrom: &mut [usize]) {
+pub fn smart_mutation(_problem: &Problem, chrom: &mut [usize]) {
     let mut rng = rand::thread_rng();
     let idx = rng.gen_range(0..chrom.len() - 1);
     chrom.swap(idx, idx + 1);
@@ -130,8 +128,6 @@ fn random_topological_sort(problem: &Problem) -> Vec<usize> {
     chrom
 }
 
-// --- LE SOLVER PRINCIPAL ---
-
 pub fn solve_monstre(
     problem: &Problem,
     _pop_size: usize,
@@ -139,7 +135,7 @@ pub fn solve_monstre(
     generations_per_epoch: usize
 ) -> (Vec<usize>, usize) {
     let num_islands = rayon::current_num_threads();
-    let real_pop_size = 50; // Optimisé pour J120
+    let real_pop_size = 50;
 
     let mut islands: Vec<Vec<Vec<usize>>> = (0..num_islands)
         .map(|_| (0..real_pop_size).map(|_| random_topological_sort(problem)).collect())
@@ -161,7 +157,6 @@ pub fn solve_monstre(
                     if f < island_best_fit {
                         island_best_fit = f;
                         island_best = pop[i].clone();
-                        // On n'optimise le champion que s'il est vraiment bon
                         if g % 10 == 0 {
                             island_best = double_justification(problem, &island_best);
                             island_best_fit = fitness(problem, &island_best);
@@ -182,7 +177,6 @@ pub fn solve_monstre(
                         repair_topological_sort(problem, &mut child);
                     }
 
-                    // LNS très rare pour débloquer
                     if g % 50 == 0 && rng.gen_range(0.0..1.0) < 0.05 {
                         child = lns(&child, 0.15);
                         repair_topological_sort(problem, &mut child);
@@ -211,8 +205,6 @@ pub fn solve_monstre(
     }
     (global_best_chrom, global_best_fit)
 }
-
-// --- SCHEDULER ET JUSTIFICATION ---
 
 fn custom_ssgs(problem: &Problem, order: &[usize], precedences: &[Vec<usize>]) -> (Vec<usize>, usize) {
     let n = problem.n;
