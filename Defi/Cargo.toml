@@ -1,9 +1,9 @@
 [package]
 name = "super_solver"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-clap = { version = "4.0", features = ["derive"] }
-rand = "0.8"
-rayon = "1.7"
+clap = { version = "4.5.60", features = ["derive"] }
+rand ="0.8"
+rayon = "1.10"
