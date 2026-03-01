@@ -79,12 +79,9 @@ fn parse_solutions(path: &str) -> HashMap<String, usize> {
         for line in text.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
-                // Format classique j60hrs.sm: "1 1 77" (groupe 1, instance 1, makespan 77)
                 if let (Ok(g), Ok(i), Ok(makespan)) = (parts[0].parse::<usize>(), parts[1].parse::<usize>(), parts[2].parse::<usize>()) {
-                    records.insert(format!("j60{}_{}", g, i), makespan);
-                } else if let Ok(makespan) = parts.last().unwrap().parse::<usize>() {
-                    // Fallback
-                    records.insert(parts[0].replace(".sm", ""), makespan);
+                    
+                    records.insert(format!("{}_{}", g, i), makespan);
                 }
             }
         }
@@ -110,21 +107,25 @@ fn main() {
     files.sort();
     println!("Instances trouvées: {}", files.len());
     
-    // Calcul en parallèle
     let results: Vec<(String, usize, f64, usize)> = files.into_par_iter().map(|file| {
         let name = file.file_name().unwrap().to_string_lossy().replace(".sm", "");
+        
+        
+        let key = name.replace("j120", "").replace("j60", "").replace("j30", "").replace("j90", "");
+
         let problem = parse_psplib(file.to_str().unwrap());
         
         let start_time = Instant::now();
+      
         let (_, best_score) = solve_monstre(&problem, 20, 2, 20);
         let time_sec = start_time.elapsed().as_secs_f64();
 
-        let old_val = *old_records.get(&name).unwrap_or(&usize::MAX);
+      
+        let old_val = *old_records.get(&key).unwrap_or(&usize::MAX);
         
         (name, best_score, time_sec, old_val)
     }).collect();
 
-    // Sauvegarde dans un fichier pour ne rien perdre !
     let mut file_out = File::create("resultats_finaux.txt").expect("Impossible de créer le fichier");
     writeln!(file_out, "Instance | Type Solution | Valeur | Technique de résolution | Temps d'exécution | Caracteristique machine | Ancienne Valeur").unwrap();
 
@@ -135,10 +136,8 @@ fn main() {
         let line = format!("{} | HEUR | {} | GA+Îlots+DoubleJustif | {:.2}s | CPU Multi-core | {}", 
             name, best_score, time_sec, old_str);
         
-        // On écrit dans le fichier
         writeln!(file_out, "{}", line).unwrap();
         
-        // On affiche seulement si on fait MIEUX ou EGAL à l'état de l'art
         if best_score <= old_val && old_val != usize::MAX {
             println!("🎯 RECORD BATTU OU EGALÉ : {}", line);
             records_battus += 1;
